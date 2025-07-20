@@ -4,6 +4,8 @@
 #![no_std]
 #![no_main]
 
+mod motor_control;
+
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_rp::gpio::{Level, Output};
@@ -11,6 +13,7 @@ use embassy_rp::spi::{self, Spi};
 use embassy_time::{Instant, Timer};
 use pscontroller_rs::{Device, PlayStationPort, dualshock::ControlDS};
 use {defmt_rtt as _, panic_probe as _};
+use motor_control::MotorController;
 
 // Program metadata for `picotool info`
 #[unsafe(link_section = ".bi_entries")]
@@ -29,7 +32,16 @@ async fn main(_spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
 
     // LED for status indication
-    let mut led = Output::new(p.PIN_16, Level::Low);
+    let mut led = Output::new(p.PIN_22, Level::Low);
+    
+    // Initialize motor controller
+    let mut motor = MotorController::new(
+        p.PWM_SLICE0,
+        p.PIN_16,  // PWM pin (PWM0 A)
+        p.PIN_17,  // IN1 pin (forward)
+        p.PIN_18,  // IN2 pin (backward)
+        p.PIN_19,  // Standby pin
+    );
 
     // SPI configuration for PS2 controllers
     // PlayStation controllers use SPI mode 3 (CPOL=1, CPHA=1)
@@ -104,6 +116,9 @@ async fn main(_spawner: Spawner) {
             "  Right Stick: X={:02x}, Y={:02x}",
             controller.rx, controller.ry
         );
+        
+        // Control motor based on left stick Y axis
+        motor.control_from_stick(controller.ly);
 
         // Show pressure values for face buttons
         let x_pressure = controller.pressures[6];

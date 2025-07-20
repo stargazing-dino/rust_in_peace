@@ -30,6 +30,7 @@ panic-probe = { version = "1.0.0", features = ["print-defmt"] }
 
 defmt = "1.0.1"
 defmt-rtt = "1.0.0"
+tb6612fng = "1.0.0"
 
 pscontroller-rs = { path = "pscontroller-rs" }
 
