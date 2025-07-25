@@ -19,7 +19,7 @@ embassy-rp = { version = "0.4.0", features = [
     "unstable-pac",
     "time-driver",
     "critical-section-impl",
-    "rp235xa",
+    "rp2040",
     "binary-info",
 ] }
 embassy-sync = { version = "0.7.0", features = ["defmt"] }

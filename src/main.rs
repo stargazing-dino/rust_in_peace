@@ -1,5 +1,5 @@
 //! Simplified PS2 DualShock 2 controller test with motor control
-//! Using pscontroller-rs with Embassy on RP2350
+//! Using pscontroller-rs with Embassy on RP2040
 
 #![no_std]
 #![no_main]
@@ -11,9 +11,9 @@ use embassy_executor::Spawner;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::spi::{self, Spi};
 use embassy_time::{Instant, Timer};
+use motor_control::MotorController;
 use pscontroller_rs::{Device, PlayStationPort, dualshock::ControlDS};
 use {defmt_rtt as _, panic_probe as _};
-use motor_control::MotorController;
 
 // Program metadata for `picotool info`
 #[unsafe(link_section = ".bi_entries")]
@@ -33,14 +33,14 @@ async fn main(_spawner: Spawner) {
 
     // LED for status indication
     let mut led = Output::new(p.PIN_22, Level::Low);
-    
+
     // Initialize motor controller
     let mut motor = MotorController::new(
         p.PWM_SLICE0,
-        p.PIN_16,  // PWM pin (PWM0 A)
-        p.PIN_17,  // IN1 pin (forward)
-        p.PIN_18,  // IN2 pin (backward)
-        p.PIN_19,  // Standby pin
+        p.PIN_16, // PWM pin (PWM0 A)
+        p.PIN_17, // IN1 pin (forward)
+        p.PIN_18, // IN2 pin (backward)
+        p.PIN_19, // Standby pin
     );
 
     // SPI configuration for PS2 controllers
@@ -107,7 +107,6 @@ async fn main(_spawner: Spawner) {
 
         // DualShock 2 with pressure sensitivity
         let buttons = controller.buttons;
-        info!("DualShock 2 (Pressure mode):");
         info!(
             "  Left Stick: X={:02x}, Y={:02x}",
             controller.lx, controller.ly
@@ -116,7 +115,7 @@ async fn main(_spawner: Spawner) {
             "  Right Stick: X={:02x}, Y={:02x}",
             controller.rx, controller.ry
         );
-        
+
         // Control motor based on left stick Y axis
         motor.control_from_stick(controller.ly);
 
