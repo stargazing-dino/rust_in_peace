@@ -80,4 +80,12 @@ impl MotorController {
     pub fn current_drive_command(&self) -> DriveCommand {
         *self.motor.current_drive_command()
     }
+
+    pub fn drive_forward(&mut self, speed: u8) {
+        self.motor.drive(DriveCommand::Forward(speed)).unwrap();
+    }
+
+    pub fn drive_backward(&mut self, speed: u8) {
+        self.motor.drive(DriveCommand::Backward(speed)).unwrap();
+    }
 }

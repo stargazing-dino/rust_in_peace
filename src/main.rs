@@ -1,182 +1,86 @@
-//! Simplified PS2 DualShock 2 controller test with motor control
-//! Using pscontroller-rs with Embassy on RP2040
+//! Dual-core battle bot control system
+//! Core 0: Control & Decision Making
+//! Core 1: Real-Time Peripheral Control
 
 #![no_std]
 #![no_main]
+#![allow(dead_code)]
+#![allow(unused_assignments)]
 
-mod motor_control;
-mod servo_control;
+mod config;
+mod messages;
+mod peripherals;
+
+mod tasks {
+    pub mod controller_task;
+    pub mod motor_task;
+}
+
+mod drivers {
+    pub mod motor_control;
+    pub mod servo_control;
+}
 
 use defmt::*;
-use embassy_executor::Spawner;
-use embassy_rp::gpio::{Level, Output};
-use embassy_rp::spi::{self, Spi};
-use embassy_time::{Instant, Timer};
-use motor_control::MotorController;
-use pscontroller_rs::{Device, PlayStationPort, dualshock::ControlDS};
-use servo_control::ServoController;
+use embassy_executor::Executor;
+use embassy_rp::multicore::{spawn_core1, Stack};
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::channel::Channel;
+use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
 
-#[embassy_executor::main]
-async fn main(_spawner: Spawner) {
+use config::*;
+use messages::*;
+use peripherals::split_peripherals;
+use tasks::controller_task::controller_task;
+use tasks::motor_task::motor_task;
+
+static COMMAND_CHANNEL: Channel<CriticalSectionRawMutex, Core1Command, COMMAND_CHANNEL_SIZE> = Channel::new();
+static STATUS_CHANNEL: Channel<CriticalSectionRawMutex, StatusReport, STATUS_CHANNEL_SIZE> = Channel::new();
+
+static mut CORE1_STACK: Stack<CORE1_STACK_SIZE> = Stack::new();
+static EXECUTOR0: StaticCell<Executor> = StaticCell::new();
+static EXECUTOR1: StaticCell<Executor> = StaticCell::new();
+
+#[cortex_m_rt::entry]
+fn main() -> ! {
     let p = embassy_rp::init(Default::default());
 
-    // LED for status indication
-    let mut led = Output::new(p.PIN_22, Level::Low);
+    let (core1, p0, p1) = split_peripherals(p);
 
-    // Initialize motor controller
-    let mut motor = MotorController::new(
-        p.PWM_SLICE0,
-        p.PIN_16, // PWM pin (PWM0 A)
-        p.PIN_17, // IN1 pin (forward)
-        p.PIN_18, // IN2 pin (backward)
-        p.PIN_19, // Standby pin
+    spawn_core1(
+        core1,
+        unsafe { &mut *core::ptr::addr_of_mut!(CORE1_STACK) },
+        move || {
+            let executor1 = EXECUTOR1.init(Executor::new());
+            executor1.run(|spawner| {
+                spawner.must_spawn(core1_main(spawner, p1));
+            });
+        },
     );
 
-    // Initialize servo controller on GP26
-    let mut servo = ServoController::new(p.PWM_SLICE5, p.PIN_26);
+    let executor0 = EXECUTOR0.init(Executor::new());
+    executor0.run(|spawner| {
+        spawner.must_spawn(core0_main(spawner, p0));
+    });
+}
 
-    // SPI configuration for PS2 controllers
-    // PlayStation controllers use SPI mode 3 (CPOL=1, CPHA=1)
-    let mut config = spi::Config::default();
-    config.frequency = 10_000;
-    config.polarity = spi::Polarity::IdleHigh;
-    config.phase = spi::Phase::CaptureOnSecondTransition;
+#[embassy_executor::task]
+async fn core0_main(spawner: embassy_executor::Spawner, p0: peripherals::Peripherals0) {
+    info!("Core 0 starting...");
 
-    // Setup SPI pins - same configuration as original
-    // GP12 - MISO (controller DATA) - needs pull-up resistor (1k-10k to 3.3V)
-    // GP15 - MOSI (controller CMD)
-    // GP14 - SCK (controller CLK)
-    // GP13 - CS (controller ATT)
-    let spi = Spi::new_blocking(
-        p.SPI1,   // Use SPI1
-        p.PIN_14, // SCK
-        p.PIN_15, // MOSI
-        p.PIN_12, // MISO
-        config,
-    );
+    let command_sender = COMMAND_CHANNEL.sender();
+    let status_receiver = STATUS_CHANNEL.receiver();
 
-    // Chip select pin
-    let cs = Output::new(p.PIN_13, Level::High);
+    spawner.must_spawn(controller_task(p0, command_sender, status_receiver));
+}
 
-    // Create PlayStation port
-    let mut psp = PlayStationPort::new(spi, Some(cs));
+#[embassy_executor::task]
+async fn core1_main(spawner: embassy_executor::Spawner, p1: peripherals::Peripherals1) {
+    info!("Core 1 starting...");
 
-    info!("PS2 DualShock 2 controller starting...");
+    let command_receiver = COMMAND_CHANNEL.receiver();
+    let status_sender = STATUS_CHANNEL.sender();
 
-    // Motor control state
-    let mut small_motor = false;
-    let mut big_motor: u8 = 0;
-
-    psp.enable_pressure().unwrap();
-
-    loop {
-        // Create motor command
-        let motor_cmd = ControlDS::new(small_motor, big_motor);
-
-        // Read controller input with motor command
-        let Ok(device) = psp.read_input(Some(&motor_cmd)) else {
-            info!("Error reading controller input, resetting motors");
-            // Controller read error - no controller connected or communication error
-            // Reset motors
-            small_motor = false;
-            big_motor = 0;
-
-            Timer::after_millis(100).await; // Wait before retrying
-
-            continue;
-        };
-
-        // Blink LED to show communication
-        led.set_high();
-        Timer::after_millis(10).await;
-        led.set_low();
-
-        let Device::DualShock2(controller) = device else {
-            // Not a DualShock 2, skip to next iteration
-            info!("Not a DualShock 2 controller, skipping...");
-            continue;
-        };
-
-        // DualShock 2 with pressure sensitivity
-        let buttons = controller.buttons;
-        info!(
-            "  Left Stick: X={:02x}, Y={:02x}",
-            controller.lx, controller.ly
-        );
-        info!(
-            "  Right Stick: X={:02x}, Y={:02x}",
-            controller.rx, controller.ry
-        );
-
-        // Control motor based on left stick Y axis
-        motor.control_from_stick(controller.ly);
-
-        // Control servo based on right stick X axis
-        servo.control_from_stick(controller.rx);
-
-        // Show pressure values for face buttons
-        let x_pressure = controller.pressures[6];
-        let o_pressure = controller.pressures[5];
-        let square_pressure = controller.pressures[7];
-        let triangle_pressure = controller.pressures[4];
-
-        if x_pressure > 0 || o_pressure > 0 || square_pressure > 0 || triangle_pressure > 0 {
-            info!(
-                "  Button Pressures: X={:02x}, O={:02x}, Square={:02x}, Triangle={:02x}",
-                x_pressure, o_pressure, square_pressure, triangle_pressure
-            );
-        }
-
-        // Show pressure values for shoulder buttons
-        let l1_pressure = controller.pressures[2];
-        let r1_pressure = controller.pressures[3];
-        let l2_pressure = controller.pressures[0];
-        let r2_pressure = controller.pressures[1];
-
-        if l1_pressure > 0 || r1_pressure > 0 || l2_pressure > 0 || r2_pressure > 0 {
-            info!(
-                "  Shoulder Pressures: L1={:02x}, R1={:02x}, L2={:02x}, R2={:02x}",
-                l1_pressure, r1_pressure, l2_pressure, r2_pressure
-            );
-        }
-
-        // Advanced motor control using pressure sensitivity
-        // L2 pressure controls small motor
-        small_motor = l2_pressure > 30; // Threshold for activation
-
-        // R2 pressure controls big motor strength
-        big_motor = if r2_pressure > 30 {
-            // Scale pressure to motor strength (30-255 pressure -> 0-255 motor)
-            ((r2_pressure.saturating_sub(30) as u16 * 255) / 225) as u8
-        } else {
-            0
-        };
-
-        // Alternative: Use face button pressure for effects
-        // X button = pulse effect
-        if x_pressure > 100 {
-            // Create pulsing effect
-            big_motor = if (Instant::now().as_millis() / 100) % 2 == 0 {
-                x_pressure
-            } else {
-                0
-            };
-        }
-
-        if small_motor || big_motor > 0 {
-            info!(
-                "Motors active: small={}, big={:02x}",
-                small_motor, big_motor
-            );
-        }
-
-        // Show stick button states (L3/R3)
-        if buttons.l3() || buttons.r3() {
-            info!("  Stick buttons: L3={}, R3={}", buttons.l3(), buttons.r3());
-        }
-
-        // Poll at ~60Hz for smooth response
-        Timer::after_millis(16).await;
-    }
+    spawner.must_spawn(motor_task(p1, command_receiver, status_sender));
 }
