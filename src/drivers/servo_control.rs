@@ -25,10 +25,10 @@ impl ServoController {
     pub fn set_angle(&mut self, angle: u8) {
         let min_duty = self.pwm.max_duty_cycle() / 20;
         let max_duty = self.pwm.max_duty_cycle() / 10;
-        
+
         let duty_range = max_duty - min_duty;
         let duty = min_duty + ((duty_range as u32 * angle as u32) / 180) as u16;
-        
+
         self.pwm.set_duty_cycle(duty).unwrap();
     }
 

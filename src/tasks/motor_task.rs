@@ -45,7 +45,7 @@ pub async fn motor_task(
                     }
                     MotorCommand::Brake => motor.brake(),
                 }
-                
+
                 if matches!(cmd, MotorCommand::Stop | MotorCommand::Brake) {
                     last_motor_active = false;
                 }

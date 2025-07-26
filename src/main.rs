@@ -35,8 +35,10 @@ use peripherals::split_peripherals;
 use tasks::controller_task::controller_task;
 use tasks::motor_task::motor_task;
 
-static COMMAND_CHANNEL: Channel<CriticalSectionRawMutex, Core1Command, COMMAND_CHANNEL_SIZE> = Channel::new();
-static STATUS_CHANNEL: Channel<CriticalSectionRawMutex, StatusReport, STATUS_CHANNEL_SIZE> = Channel::new();
+static COMMAND_CHANNEL: Channel<CriticalSectionRawMutex, Core1Command, COMMAND_CHANNEL_SIZE> =
+    Channel::new();
+static STATUS_CHANNEL: Channel<CriticalSectionRawMutex, StatusReport, STATUS_CHANNEL_SIZE> =
+    Channel::new();
 
 static mut CORE1_STACK: Stack<CORE1_STACK_SIZE> = Stack::new();
 static EXECUTOR0: StaticCell<Executor> = StaticCell::new();

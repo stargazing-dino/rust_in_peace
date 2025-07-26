@@ -1,5 +1,5 @@
 //! Configuration constants for the battle bot
-//! 
+//!
 //! This module contains all the magic numbers and configuration values
 //! used throughout the system, making them easy to find and modify.
 
@@ -41,25 +41,25 @@ pub const CORE1_STACK_SIZE: usize = 8192;
 
 // Pin Mapping Documentation
 // Pin assignments for the RP2040
-// 
+//
 // PS2 Controller (SPI1):
 // - PIN_12: MISO (Data from controller)
 // - PIN_13: CS/SS (Chip Select)
 // - PIN_14: SCK (Clock)
 // - PIN_15: MOSI (Commands to controller)
-// 
+//
 // Motor Driver (TB6612FNG):
 // - PIN_16: PWM (Speed control)
 // - PIN_17: IN1 (Direction control)
 // - PIN_18: IN2 (Direction control)
 // - PIN_19: STBY (Standby/Enable)
-// 
+//
 // Servo:
 // - PIN_26: PWM signal
-// 
+//
 // Status:
 // - PIN_22: Status LED
-// 
+//
 // Future Expansion:
 // - PIN_20/21: Weapon system PWM
 // - PIN_0/1: I2C for sensors
