@@ -5,6 +5,7 @@
 #![no_main]
 
 mod motor_control;
+mod servo_control;
 
 use defmt::*;
 use embassy_executor::Spawner;
@@ -13,19 +14,8 @@ use embassy_rp::spi::{self, Spi};
 use embassy_time::{Instant, Timer};
 use motor_control::MotorController;
 use pscontroller_rs::{Device, PlayStationPort, dualshock::ControlDS};
+use servo_control::ServoController;
 use {defmt_rtt as _, panic_probe as _};
-
-// Program metadata for `picotool info`
-#[unsafe(link_section = ".bi_entries")]
-#[used]
-pub static PICOTOOL_ENTRIES: [embassy_rp::binary_info::EntryAddr; 4] = [
-    embassy_rp::binary_info::rp_program_name!(c"PS2 Controller Test"),
-    embassy_rp::binary_info::rp_program_description!(
-        c"Test PS2 DualShock 2 controller with rumble motor control"
-    ),
-    embassy_rp::binary_info::rp_cargo_version!(),
-    embassy_rp::binary_info::rp_program_build_attribute!(),
-];
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -42,6 +32,9 @@ async fn main(_spawner: Spawner) {
         p.PIN_18, // IN2 pin (backward)
         p.PIN_19, // Standby pin
     );
+
+    // Initialize servo controller on GP26
+    let mut servo = ServoController::new(p.PWM_SLICE5, p.PIN_26);
 
     // SPI configuration for PS2 controllers
     // PlayStation controllers use SPI mode 3 (CPOL=1, CPHA=1)
@@ -118,6 +111,9 @@ async fn main(_spawner: Spawner) {
 
         // Control motor based on left stick Y axis
         motor.control_from_stick(controller.ly);
+
+        // Control servo based on right stick X axis
+        servo.control_from_stick(controller.rx);
 
         // Show pressure values for face buttons
         let x_pressure = controller.pressures[6];
