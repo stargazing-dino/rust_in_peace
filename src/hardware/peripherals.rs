@@ -21,7 +21,7 @@ macro_rules! make_peripherals {
 
             macro_rules! [<$name:snake>] {
                 ($p:ident) => {{
-                    use crate::peripherals::*;
+                    use crate::hardware::peripherals::*;
                     $name {
                         $($pin: $p.$pin,)*
                     }

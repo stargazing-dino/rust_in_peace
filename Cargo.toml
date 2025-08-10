@@ -36,7 +36,7 @@ defmt-rtt = "1.0.0"
 tb6612fng = "1.0.0"
 paste = { version = "1.0", default-features = false }
 
-pscontroller-rs = { path = "pscontroller-rs" }
+pscontroller-rs = { git = "https://github.com/RandomInsano/pscontroller-rs.git" }
 
 [profile.release]
 opt-level = 'z'

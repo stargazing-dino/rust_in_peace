@@ -998,6 +998,7 @@ dependencies = [
 [[package]]
 name = "pscontroller-rs"
 version = "0.7.0"
+source = "git+https://github.com/RandomInsano/pscontroller-rs.git#d3d17a94a0e82d3fd330f1c3c69fdda405ca3631"
 dependencies = [
  "bit_reverse",
  "bitflags 1.3.2",

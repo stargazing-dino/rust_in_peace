@@ -11,7 +11,7 @@ use pscontroller_rs::{dualshock::ControlDS, Device, PlayStationPort};
 use pscontroller_rs::classic::GamepadButtons;
 
 use crate::config::*;
-use crate::peripherals::{PeripheralsController, PeripheralsPs2Led};
+use crate::hardware::{PeripheralsController, PeripheralsPs2Led};
 
 /// Data from the PS2 controller sent to motor task
 #[derive(Clone, Copy, Debug, Format)]
@@ -33,12 +33,12 @@ pub fn bits_to_buttons(bits: u16) -> GamepadButtons {
 }
 
 #[embassy_executor::task]
-pub async fn controller_task(
+pub async fn ps2_reader_task(
     controller_peripherals: PeripheralsController,
     controller_sender: Sender<'static, CriticalSectionRawMutex, ControllerData, 8>,
     led_signal: &'static Signal<CriticalSectionRawMutex, ()>,
 ) {
-    info!("Controller task starting...");
+    info!("PS2 reader task starting...");
 
     let mut config = spi::Config::default();
     config.frequency = PS2_SPI_FREQUENCY;

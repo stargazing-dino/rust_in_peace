@@ -8,13 +8,13 @@
 #![allow(unused_assignments)]
 
 mod config;
-mod peripherals;
 
-mod ps2_input;
-mod motor;
-mod motor_controller;
-mod servo_controller;
-mod tank_drive_controller;
+mod input;
+mod hardware;
+
+mod events;
+mod control;
+mod utils;
 
 use defmt::*;
 use embassy_executor::Executor;
@@ -26,11 +26,18 @@ use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
 
 use config::*;
-use peripherals::split_peripherals;
-use ps2_input::{controller_task, receiver_led_task, ControllerData};
-use motor::motor_task;
+use hardware::split_peripherals;
+use input::{ps2_reader_task, receiver_led_task, ControllerData};
+use control::{state_controller_task, tank_driver_task, servo_driver_task, led_driver_task};
+use events::{TankDriveEvent, ServoEvent, LedEvent};
 
 static CONTROLLER_CHANNEL: Channel<CriticalSectionRawMutex, ControllerData, COMMAND_CHANNEL_SIZE> =
+    Channel::new();
+static TANK_CHANNEL: Channel<CriticalSectionRawMutex, TankDriveEvent, COMMAND_CHANNEL_SIZE> =
+    Channel::new();
+static SERVO_CHANNEL: Channel<CriticalSectionRawMutex, ServoEvent, COMMAND_CHANNEL_SIZE> =
+    Channel::new();
+static LED_CHANNEL: Channel<CriticalSectionRawMutex, LedEvent, COMMAND_CHANNEL_SIZE> =
     Channel::new();
 static LED_SIGNAL: Signal<CriticalSectionRawMutex, ()> = Signal::new();
 
@@ -62,20 +69,37 @@ fn main() -> ! {
 }
 
 #[embassy_executor::task]
-async fn core0_main(spawner: embassy_executor::Spawner, p0: peripherals::Peripherals0) {
+async fn core0_main(spawner: embassy_executor::Spawner, p0: hardware::Peripherals0) {
     info!("Core 0 starting...");
 
     let controller_sender = CONTROLLER_CHANNEL.sender();
 
-    spawner.must_spawn(controller_task(p0.controller, controller_sender, &LED_SIGNAL));
+    spawner.must_spawn(ps2_reader_task(p0.controller, controller_sender, &LED_SIGNAL));
     spawner.must_spawn(receiver_led_task(p0.ps2_led, &LED_SIGNAL));
 }
 
 #[embassy_executor::task]
-async fn core1_main(spawner: embassy_executor::Spawner, p1: peripherals::Peripherals1) {
+async fn core1_main(spawner: embassy_executor::Spawner, p1: hardware::Peripherals1) {
     info!("Core 1 starting...");
 
     let controller_receiver = CONTROLLER_CHANNEL.receiver();
+    let tank_sender = TANK_CHANNEL.sender();
+    let tank_receiver = TANK_CHANNEL.receiver();
+    let servo_sender = SERVO_CHANNEL.sender();
+    let servo_receiver = SERVO_CHANNEL.receiver();
+    let led_sender = LED_CHANNEL.sender();
+    let led_receiver = LED_CHANNEL.receiver();
 
-    spawner.must_spawn(motor_task(p1, controller_receiver));
+    // Spawn the state controller (the "brains")
+    spawner.must_spawn(state_controller_task(
+        controller_receiver,
+        tank_sender,
+        servo_sender,
+        led_sender,
+    ));
+
+    // Spawn hardware driver tasks
+    spawner.must_spawn(tank_driver_task(p1.motor, tank_receiver));
+    spawner.must_spawn(servo_driver_task(p1.servo, servo_receiver));
+    spawner.must_spawn(led_driver_task(p1.state_led, led_receiver));
 }
