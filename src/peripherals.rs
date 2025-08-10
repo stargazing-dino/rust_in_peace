@@ -1,4 +1,13 @@
 //! Peripheral allocation for dual-core battle bot system
+//!
+//! This module handles splitting the RP2040's hardware peripherals between
+//! two CPU cores. We do this to separate concerns:
+//!
+//! - Core 0: Handles user input
+//! - Core 1: Manages real-time motor control and hardware actuation
+//!
+//! The macro system groups related peripherals into logical units (controller,
+//! motors, sensors, etc.), asserting at compile time no shared resources.
 
 use embassy_rp::{peripherals::CORE1, Peripherals};
 
@@ -28,13 +37,18 @@ make_peripherals! {
 }
 
 make_peripherals! {
-    PeripheralsStatus,
-    (PIN_22)  // Status LED
+    PeripheralsPs2Led,
+    (PIN_22)  // PS2 connection status LED (Core 0)
+}
+
+make_peripherals! {
+    PeripheralsStateLed,
+    (PIN_25)  // Bot state LED (Core 1)
 }
 
 make_peripherals! {
     PeripheralsMotor,
-    (PWM_SLICE0, PIN_16, PIN_17, PIN_18, PIN_19)  // Motor driver
+    (PWM_SLICE0, PWM_SLICE3, PIN_16, PIN_17, PIN_18, PIN_19, PIN_7, PIN_8, PIN_9)  // Dual motor drivers (BR and FL)
 }
 
 make_peripherals! {
@@ -54,12 +68,13 @@ make_peripherals! {
 
 pub struct Peripherals0 {
     pub controller: PeripheralsController,
-    pub status: PeripheralsStatus,
+    pub ps2_led: PeripheralsPs2Led,
 }
 
 pub struct Peripherals1 {
     pub motor: PeripheralsMotor,
     pub servo: PeripheralsServo,
+    pub state_led: PeripheralsStateLed,
     pub weapon: PeripheralsWeapon,
     pub sensors: PeripheralsSensors,
 }
@@ -69,11 +84,12 @@ pub fn split_peripherals(p: Peripherals) -> (CORE1, Peripherals0, Peripherals1) 
         p.CORE1,
         Peripherals0 {
             controller: peripherals_controller!(p),
-            status: peripherals_status!(p),
+            ps2_led: peripherals_ps2_led!(p),
         },
         Peripherals1 {
             motor: peripherals_motor!(p),
             servo: peripherals_servo!(p),
+            state_led: peripherals_state_led!(p),
             weapon: peripherals_weapon!(p),
             sensors: peripherals_sensors!(p),
         },

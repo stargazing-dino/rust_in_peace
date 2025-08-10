@@ -8,37 +8,31 @@
 #![allow(unused_assignments)]
 
 mod config;
-mod messages;
 mod peripherals;
 
-mod tasks {
-    pub mod controller_task;
-    pub mod motor_task;
-}
-
-mod drivers {
-    pub mod motor_control;
-    pub mod servo_control;
-}
+mod ps2_input;
+mod motor;
+mod motor_controller;
+mod servo_controller;
+mod tank_drive_controller;
 
 use defmt::*;
 use embassy_executor::Executor;
 use embassy_rp::multicore::{spawn_core1, Stack};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
+use embassy_sync::signal::Signal;
 use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
 
 use config::*;
-use messages::*;
 use peripherals::split_peripherals;
-use tasks::controller_task::controller_task;
-use tasks::motor_task::motor_task;
+use ps2_input::{controller_task, receiver_led_task, ControllerData};
+use motor::motor_task;
 
-static COMMAND_CHANNEL: Channel<CriticalSectionRawMutex, Core1Command, COMMAND_CHANNEL_SIZE> =
+static CONTROLLER_CHANNEL: Channel<CriticalSectionRawMutex, ControllerData, COMMAND_CHANNEL_SIZE> =
     Channel::new();
-static STATUS_CHANNEL: Channel<CriticalSectionRawMutex, StatusReport, STATUS_CHANNEL_SIZE> =
-    Channel::new();
+static LED_SIGNAL: Signal<CriticalSectionRawMutex, ()> = Signal::new();
 
 static mut CORE1_STACK: Stack<CORE1_STACK_SIZE> = Stack::new();
 static EXECUTOR0: StaticCell<Executor> = StaticCell::new();
@@ -71,18 +65,17 @@ fn main() -> ! {
 async fn core0_main(spawner: embassy_executor::Spawner, p0: peripherals::Peripherals0) {
     info!("Core 0 starting...");
 
-    let command_sender = COMMAND_CHANNEL.sender();
-    let status_receiver = STATUS_CHANNEL.receiver();
+    let controller_sender = CONTROLLER_CHANNEL.sender();
 
-    spawner.must_spawn(controller_task(p0, command_sender, status_receiver));
+    spawner.must_spawn(controller_task(p0.controller, controller_sender, &LED_SIGNAL));
+    spawner.must_spawn(receiver_led_task(p0.ps2_led, &LED_SIGNAL));
 }
 
 #[embassy_executor::task]
 async fn core1_main(spawner: embassy_executor::Spawner, p1: peripherals::Peripherals1) {
     info!("Core 1 starting...");
 
-    let command_receiver = COMMAND_CHANNEL.receiver();
-    let status_sender = STATUS_CHANNEL.sender();
+    let controller_receiver = CONTROLLER_CHANNEL.receiver();
 
-    spawner.must_spawn(motor_task(p1, command_receiver, status_sender));
+    spawner.must_spawn(motor_task(p1, controller_receiver));
 }
