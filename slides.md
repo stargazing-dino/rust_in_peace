@@ -60,10 +60,17 @@ Show: [VIDEO LINK HERE]
 </div>
 <div>
 
-![Tombstone](images/tombstone.jpg)
+![Cool Image](images/cool-iimage.jpg)
 
 </div>
 </div>
+
+---
+
+<video controls width="100%" style="max-width: 800px; margin: 0 auto; display: block;">
+  <source src="images/video_with_audio.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
 
 ---
 

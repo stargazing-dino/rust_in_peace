@@ -54,13 +54,32 @@ impl TankDriveController {
     /// Control tank drive with omnidirectional movement
     /// x: -100 to 100 (left to right)
     /// y: -100 to 100 (backward to forward)
+    /// 
+    /// # Differential Drive Mixing
+    /// 
+    /// This uses differential drive mixing to convert joystick inputs (x,y) into 
+    /// individual motor speeds for tank-style movement:
+    /// 
+    /// ```
+    /// left_speed  = forward_speed + turn_speed
+    /// right_speed = forward_speed - turn_speed
+    /// ```
+    /// 
+    /// ## Examples:
+    /// - **Straight forward** (y=50, x=0): Both motors at 50% → moves straight
+    /// - **Straight backward** (y=-50, x=0): Both motors at -50% → reverses straight
+    /// - **Turn right** (y=50, x=30): Left at 80%, Right at 20% → curves right  
+    /// - **Backward left turn** (y=-40, x=-20): Left at -60%, Right at -20% → reverses while turning left
+    /// - **Spin in place** (y=0, x=50): Left at 50%, Right at -50% → rotates on spot
+    /// 
+    /// This allows smooth omnidirectional control from simple forward/turn inputs.
     pub fn drive(&mut self, x: i8, y: i8) {
         // Calculate individual motor speeds for omnidirectional movement
         // For tank drive with opposite corner motors:
         // BR motor: controls right side thrust
         // FL motor: controls left side thrust
         
-        // Basic tank drive mixing
+        // Apply differential drive mixing algorithm
         let left_speed = y.saturating_add(x);
         let right_speed = y.saturating_sub(x);
 
