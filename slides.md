@@ -567,23 +567,9 @@ probe-rs attach --chip RP2040
 - **probe-rs**: https://probe.rs
 - **This project**: https://github.com/stargazing-dino/rust_in_peace
 
-## Battle Bot Communities:
-
 ---
 
 # Questions? 🤔
-
-## Thank you!
-
-**Contact:**
-
-*Remember: Safety first, destruction second!* 🦀⚔️
-
----
-
-# Bonus: Hardware Details
-
-<!-- Optional deep-dive slides below -->
 
 ---
 
@@ -645,15 +631,3 @@ Motor drivers handle:
 - PWM speed control
 
 ---
-
-# Appendix: Full State Diagram
-
-```mermaid
-graph LR
-    Idle -->|Start Button| Combat
-    Combat -->|Select Button| Idle
-    Combat -->|Fault| Emergency
-    Emergency -->|Start+Select| Idle
-```
-
-<!-- You could expand this with your actual state logic -->
