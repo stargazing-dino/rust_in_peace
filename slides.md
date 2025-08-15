@@ -54,7 +54,6 @@ Rex
 
 <!-- 
 Speaker notes: Add your favorite battle bot video link here
-Show: [VIDEO LINK HERE]
 -->
 
 </div>
@@ -187,8 +186,7 @@ But it will:
 
 ## Power Requirements
 - Logic: 3.3V from RP2040
-- Motors: [YOUR VOLTAGE]
-- Battery: [YOUR BATTERY SPECS]
+- Motors: 7V
 
 </div>
 <div>
@@ -462,7 +460,6 @@ How do we control motor speed with digital signals?
 1. **State Machine** - Emergency stop state
 2. **Channel Buffers** - Commands don't pile up
 3. **Deadman Switch** - Stop if no input
-4. **Voltage Monitoring** - [TO BE IMPLEMENTED]
 
 </div>
 <div>
@@ -534,8 +531,6 @@ probe-rs attach --chip RP2040
 
 ## Challenges 🤔
 <!-- Fill in your specific challenges -->
-- [YOUR CHALLENGE 1]
-- [YOUR CHALLENGE 2]
 
 </div>
 <div>
@@ -543,8 +538,6 @@ probe-rs attach --chip RP2040
 ## Next Improvements 🚀
 - Add current sensing for safety
 - Implement weapon control
-- [YOUR IDEA HERE]
-- [YOUR IDEA HERE]
 
 </div>
 </div>
@@ -563,7 +556,6 @@ probe-rs attach --chip RP2040
 4. Spin demonstration
 5. Emergency stop
 
-[DEMO VIDEO/LIVE DEMO]
 
 ---
 
@@ -576,8 +568,6 @@ probe-rs attach --chip RP2040
 - **This project**: https://github.com/stargazing-dino/rust_in_peace
 
 ## Battle Bot Communities:
-- [YOUR LOCAL ROBOTICS CLUB]
-- [COMPETITION/EVENT LINKS]
 
 ---
 
@@ -586,8 +576,6 @@ probe-rs attach --chip RP2040
 ## Thank you!
 
 **Contact:**
-- GitHub: [YOUR GITHUB]
-- Email: [YOUR EMAIL]
 
 *Remember: Safety first, destruction second!* 🦀⚔️
 
